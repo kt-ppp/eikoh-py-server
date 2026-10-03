@@ -27,9 +27,10 @@ FastAPI（Uvicornで起動）
 **必ず1つのプロセス、1 workerで起動してください。** メモリはプロセス間では共有されないため、複数workerでは参加情報や投稿がばらばらになります。
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+./start.sh
 ```
 
+`start.sh` は初回に仮想環境と依存関係を用意し、その環境のPythonでUvicornを起動します。仮想環境を手動で有効化する必要はありません。停止は `Ctrl+C` です。
 授業ごとにサーバを再起動すると、前の授業の参加情報と投稿が消えます。セッションの期限切れだけでは投稿は消えません。
 
 ## 3. `/app/sns/` の画面と処理
@@ -79,13 +80,13 @@ Cookieの有効期間とサーバ側の期限は、参加時から標準で21600
 起動前の環境変数で設定できます。
 
 ```bash
-LESSON_SESSION_TTL_SECONDS=21600 uvicorn app.main:app --host 0.0.0.0 --port 8000
+LESSON_SESSION_TTL_SECONDS=21600 ./start.sh
 ```
 
 HTTPS環境では `COOKIE_SECURE=true` を設定して、CookieをHTTPSだけで送るようにします。
 
 ```bash
-COOKIE_SECURE=true uvicorn app.main:app --host 0.0.0.0 --port 8000
+COOKIE_SECURE=true ./start.sh
 ```
 
 教室でのHTTPS終端は、必要になったときに次の構成を使えます。今回はプロキシの構築は行っていません。

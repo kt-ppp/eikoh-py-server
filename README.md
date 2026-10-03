@@ -2,19 +2,14 @@
 
 授業でHTTP、一時ユーザー、投稿の共有を学ぶためのFastAPIモックです。
 
-Python 3.10以上で、リポジトリのルートからインストールします。
+Python 3.10以上で、リポジトリのルートから起動します（1プロセス）。
+初回は仮想環境の作成と必要な依存関係のインストールを自動で行います。
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[test]'
+./start.sh
 ```
 
-起動（1プロセス）：
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
+停止は `Ctrl+C` です。
 
 - 投稿画面：http://localhost:8000/app/sns/
 - 生徒向け説明：http://localhost:8000/about
@@ -24,5 +19,6 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 テスト：
 
 ```bash
-python -m pytest
+.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m pytest
 ```

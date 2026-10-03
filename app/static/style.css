@@ -1,0 +1,44 @@
+body {
+    font-family: sans-serif;
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 0 16px;
+    background: white;
+    color: black;
+}
+
+a {
+    color: #0645ad;
+}
+
+input,
+textarea,
+button {
+    font: inherit;
+}
+
+label,
+textarea {
+    display: block;
+}
+
+textarea {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 4px 0;
+}
+
+form {
+    margin-bottom: 16px;
+}
+
+.post {
+    border-top: 1px solid #ccc;
+    padding: 12px 0;
+}
+
+.post-text,
+pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

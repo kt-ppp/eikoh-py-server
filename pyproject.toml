@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eikoh-py-server"
+version = "0.1.0"
+description = "授業でHTTPと共有状態を学ぶためのSNSモック"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
+    "jinja2>=3.1,<4",
+    "python-multipart>=0.0.20,<1",
+    "markdown>=3.7,<4",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["templates/*.html", "static/*.css"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

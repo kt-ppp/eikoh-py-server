@@ -21,8 +21,11 @@ FastAPI（Uvicornで起動）
       Python memory
 ```
 
-処理は `app/main.py` にまとめています。HTMLはJinja2、CSSは `app/static/style.css`、説明ページはPython-Markdownで変換します。
+`app/main.py` はサーバの起動設定と各アプリの登録を担当します。一時ユーザーの識別は共通の `app/sessions.py`、SNSの処理と投稿データは `app/apps/sns/routes.py` に置いています。
+HTMLはJinja2で表示します。SNSのテンプレートとCSSは `app/apps/sns/` 内にまとめ、共通の基本CSSは `app/static/style.css` に置いています。
+`/about` の処理はサイト共通の `app/pages.py` にあり、Python-Markdownで説明を変換します。
 `GET /about` はリポジトリ内の `docs/student.md` を読み、HTMLとして表示します。生徒向けの説明を直すときはこのMarkdownを編集します。
+構成の全体像と別のアプリの追加手順は [structure.md](structure.md) を参照してください。
 
 **必ず1つのプロセス、1 workerで起動してください。** メモリはプロセス間では共有されないため、複数workerでは参加情報や投稿がばらばらになります。
 
@@ -72,7 +75,8 @@ tokenは `secrets.token_urlsafe(32)` で作る、推測されにくいランダ�
 
 ## 6. セッション
 
-`sessions` はメモリ上の辞書です。tokenに対して `user_id`、`name`、`expires_at` を保存し、DBには書きません。
+`app/sessions.py` の `sessions` はメモリ上の辞書です。tokenに対して `user_id`、`name`、`expires_at` を保存し、DBには書きません。
+参加時は `create_session()` で登録し、アクセス時は `current_user()` で確認します。追加するアプリからもこの共通処理を使えます。
 Cookieの名前は `lesson_session` です。`HttpOnly` によりJavaScriptから読めず、`SameSite=Lax` を設定しています。
 Cookieの有効期間とサーバ側の期限は、参加時から標準で21600秒（6時間）です。アクセスのたびには延長しません。
 期限切れのセッションは参加・投稿・投稿画面へのアクセス時に辞書から取り除きます。期限切れやサーバ再起動後には参加し直します。
@@ -119,7 +123,7 @@ GET
 投稿一覧表示
 ```
 
-`posts` は `id`、`user_id`、`name`、`text` を持つ辞書のlistです。
+`app/apps/sns/routes.py` の `posts` は `id`、`user_id`、`name`、`text` を持つ辞書のlistです。SNS固有のデータとして、そのアプリの中に置いています。
 入力の前後の空白を除き、空文字・空白だけ・500文字を超える文章を拒否します。名前も前後の空白を除いて検証します。
 最新100件を保持し、古い投稿から取り除きます。再起動するとすべて消えます。
 

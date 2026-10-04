@@ -1,0 +1,9 @@
+.post {
+    border-top: 1px solid #ccc;
+    padding: 12px 0;
+}
+
+.post-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

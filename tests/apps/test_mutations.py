@@ -1,3 +1,8 @@
+import json
+import os
+import subprocess
+import sys
+
 import pytest
 
 from app.apps.sns import state
@@ -96,3 +101,43 @@ def test_expired_user_cannot_edit_or_delete(client, monkeypatch):
         response = client.post(f"/app/sns/posts/{post_id}/{action}", data={"text": "変更"}, follow_redirects=False)
         assert response.status_code == 303
     assert state.posts[0]["text"] == "本人の投稿"
+
+
+def test_post_ids_are_not_reused_after_process_restart(client):
+    from app import sessions as session_store
+
+    token = join(client, "山田")
+    code = """
+import json
+import sys
+from fastapi import HTTPException
+from app.sessions import get_session
+from app.apps.sns import state
+
+data = json.load(sys.stdin)
+user = get_session(data["token"])
+post = state.add_post(user, "新しい投稿")
+statuses = []
+if "old_id" in data:
+    for change in (lambda: state.edit_post(user, data["old_id"], "変更"),
+                   lambda: state.delete_post(user, data["old_id"])):
+        try:
+            change()
+            statuses.append(200)
+        except HTTPException as error:
+            statuses.append(error.status_code)
+print(json.dumps({"id": post["id"], "statuses": statuses}))
+"""
+    env = {**os.environ, "SESSION_DB_PATH": str(session_store.SESSION_DB_PATH)}
+
+    def run_process(data):
+        result = subprocess.run(
+            [sys.executable, "-c", code], input=json.dumps(data),
+            text=True, capture_output=True, check=True, env=env,
+        )
+        return json.loads(result.stdout)
+
+    before = run_process({"token": token})
+    after = run_process({"token": token, "old_id": before["id"]})
+    assert after["id"] != before["id"]
+    assert after["statuses"] == [404, 404]

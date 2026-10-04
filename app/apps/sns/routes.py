@@ -68,7 +68,7 @@ async def post(request: Request, text: str = Form("")):
 
 
 @router.post("/posts/{post_id}/edit")
-async def edit(request: Request, post_id: int, text: str = Form("")):
+async def edit(request: Request, post_id: str, text: str = Form("")):
     user = session_store.current_user(request)
     if user is None:
         return RedirectResponse("/app/sns/", status_code=303)
@@ -81,7 +81,7 @@ async def edit(request: Request, post_id: int, text: str = Form("")):
 
 
 @router.post("/posts/{post_id}/delete")
-async def delete(request: Request, post_id: int):
+async def delete(request: Request, post_id: str):
     user = session_store.current_user(request)
     if user is None:
         return RedirectResponse("/app/sns/", status_code=303)

@@ -95,7 +95,7 @@
         event.preventDefault();
         if (pendingForm) return;
         const message = {action: form.dataset.action};
-        if (form.dataset.id) message.id = Number(form.dataset.id);
+        if (form.dataset.id) message.id = form.dataset.id;
         const textarea = form.querySelector("textarea");
         if (textarea) message.text = textarea.value;
         error.hidden = true;

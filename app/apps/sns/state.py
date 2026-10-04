@@ -1,9 +1,8 @@
-from itertools import count
+from uuid import uuid4
 
 from fastapi import HTTPException
 
 posts: list[dict] = []
-next_post_id = count(1)
 
 
 def validated_text(text: str) -> str:
@@ -14,15 +13,15 @@ def validated_text(text: str) -> str:
 
 def add_post(user: dict, text: str) -> dict:
     text = validated_text(text)
-    post = {"id": next(next_post_id), "user_id": user["user_id"], "name": user["name"], "text": text}
+    post = {"id": uuid4().hex, "user_id": user["user_id"], "name": user["name"], "text": text}
     posts.append(post)
     del posts[:-100]
     return post
 
 
-def owned_post(user: dict, post_id: int) -> dict:
-    if type(post_id) is not int or post_id <= 0:
-        raise HTTPException(400, "投稿の番号が不正です。")
+def owned_post(user: dict, post_id: str) -> dict:
+    if not isinstance(post_id, str) or not post_id:
+        raise HTTPException(400, "投稿のIDが不正です。")
     post = next((post for post in posts if post["id"] == post_id), None)
     if post is None:
         raise HTTPException(404, "投稿が見つかりません。")
@@ -31,13 +30,13 @@ def owned_post(user: dict, post_id: int) -> dict:
     return post
 
 
-def edit_post(user: dict, post_id: int, text: str) -> dict:
+def edit_post(user: dict, post_id: str, text: str) -> dict:
     post = owned_post(user, post_id)
     post["text"] = validated_text(text)
     return post
 
 
-def delete_post(user: dict, post_id: int) -> dict:
+def delete_post(user: dict, post_id: str) -> dict:
     post = owned_post(user, post_id)
     posts.remove(post)
     return post

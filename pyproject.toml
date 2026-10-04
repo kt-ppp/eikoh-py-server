@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "eikoh-py-server"
 version = "0.1.0"
-description = "授業でHTTPと共有状態を学ぶためのSNSモック"
+description = "授業用アプリを動かすPythonモックサーバ"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115,<1",
@@ -23,6 +23,7 @@ include = ["app*"]
 
 [tool.setuptools.package-data]
 app = ["templates/*.html", "static/*.css"]
+"app.apps.sns" = ["templates/*.html", "static/*.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

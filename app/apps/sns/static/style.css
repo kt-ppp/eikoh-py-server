@@ -7,3 +7,17 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
+
+.post-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.post-actions details {
+    flex: 1;
+}
+
+.post-actions form {
+    margin: 4px 0;
+}

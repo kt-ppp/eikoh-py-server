@@ -2,15 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import sessions as session_store
-from app.apps.sns import routes as sns
+from app.apps.sns import state
 from app.main import app
-
-
-@pytest.fixture(autouse=True)
-def clear_posts():
-    sns.posts.clear()
-    yield
-    sns.posts.clear()
 
 
 def join(client, name="山田"):
@@ -37,16 +30,17 @@ def test_join_cookie_and_identity_survive_reload(client):
     assert "Secure" not in cookie
     token = client.cookies.get(session_store.SESSION_COOKIE)
     assert len(token) >= 40
-    user_id = session_store.sessions[token]["user_id"]
-    expires_at = session_store.sessions[token]["expires_at"]
+    user_id = session_store.get_session(token)["user_id"]
+    expires_at = session_store.get_session(token)["expires_at"]
     for _ in range(2):
         assert "山田 として参加中" in client.get("/app/sns/").text
     # 参加済みのブラウザは、再送信でも別のユーザーを作らない。
     assert join(client, "田中").status_code == 303
     assert client.cookies.get(session_store.SESSION_COOKIE) == token
-    assert session_store.sessions[token]["user_id"] == user_id
-    assert session_store.sessions[token]["expires_at"] == expires_at
-    assert len(session_store.sessions) == 1
+    assert session_store.get_session(token)["user_id"] == user_id
+    assert session_store.get_session(token)["expires_at"] == expires_at
+    with session_store.connection() as database:
+        assert database.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
 
 
 def test_secure_cookie_and_custom_ttl(client, monkeypatch):
@@ -56,7 +50,7 @@ def test_secure_cookie_and_custom_ttl(client, monkeypatch):
     response = join(client)
     assert "Secure" in response.headers["set-cookie"]
     assert "Max-Age=60" in response.headers["set-cookie"]
-    assert next(iter(session_store.sessions.values()))["expires_at"] == 1060
+    assert session_store.get_session(client.cookies.get(session_store.SESSION_COOKIE))["expires_at"] == 1060
 
 
 def test_post_redirect_list_and_reload(client):
@@ -68,8 +62,8 @@ def test_post_redirect_list_and_reload(client):
         page = client.get(response.headers["location"])
         assert "こんにちは\nみなさん" in page.text
         assert "山田" in page.text
-    assert len(sns.posts) == 1
-    assert sns.posts[0]["user_id"] == session_store.sessions[client.cookies.get(session_store.SESSION_COOKIE)]["user_id"]
+    assert len(state.posts) == 1
+    assert state.posts[0]["user_id"] == session_store.get_session(client.cookies.get(session_store.SESSION_COOKIE))["user_id"]
 
 
 def test_two_users_share_posts_with_separate_ids(client):
@@ -81,7 +75,7 @@ def test_two_users_share_posts_with_separate_ids(client):
         assert "Aからの投稿" in other.get("/app/sns/").text
         other.post("/app/sns/post", data={"text": "Bからの投稿"})
     assert "Bからの投稿" in client.get("/app/sns/").text
-    assert sns.posts[0]["user_id"] != sns.posts[1]["user_id"]
+    assert state.posts[0]["user_id"] != state.posts[1]["user_id"]
 
 
 @pytest.mark.parametrize("name", ["", " ", "\n\t　", "名" * 31])
@@ -89,14 +83,14 @@ def test_invalid_name_rejected(client, name):
     response = join(client, name)
     assert response.status_code == 400
     assert "名前は1〜30文字" in response.text
-    assert not session_store.sessions
+    assert not session_store.SESSION_DB_PATH.exists()
     assert session_store.SESSION_COOKIE not in client.cookies
 
 
 @pytest.mark.parametrize("name", ["名", "名" * 30, "  山田  "])
 def test_valid_name_boundaries(client, name):
     assert join(client, name).status_code == 303
-    assert next(iter(session_store.sessions.values()))["name"] == name.strip()
+    assert session_store.get_session(client.cookies.get(session_store.SESSION_COOKIE))["name"] == name.strip()
 
 
 @pytest.mark.parametrize("text", ["", " ", "\n\t　", "あ" * 501])
@@ -105,14 +99,14 @@ def test_invalid_post_rejected(client, text):
     response = client.post("/app/sns/post", data={"text": text})
     assert response.status_code == 400
     assert "投稿は1〜500文字" in response.text
-    assert not sns.posts
+    assert not state.posts
 
 
 @pytest.mark.parametrize("text", ["あ", "あ" * 500, "  こんにちは  "])
 def test_valid_post_boundaries(client, text):
     join(client)
     assert client.post("/app/sns/post", data={"text": text}, follow_redirects=False).status_code == 303
-    assert sns.posts[0]["text"] == text.strip()
+    assert state.posts[0]["text"] == text.strip()
 
 
 @pytest.mark.parametrize("token", [None, "unknown-token"])
@@ -123,35 +117,34 @@ def test_unjoined_or_unknown_token_cannot_post(client, token):
     assert response.status_code == 200
     assert 'action="/app/sns/join"' in response.text
     assert session_store.SESSION_COOKIE not in client.cookies
-    assert not sns.posts
+    assert not state.posts
 
 
 def test_expired_session_must_rejoin(client, monkeypatch):
     monkeypatch.setattr(session_store.time, "time", lambda: 1000)
     join(client)
     old_token = client.cookies.get(session_store.SESSION_COOKIE)
-    old_id = session_store.sessions[old_token]["user_id"]
+    old_id = session_store.get_session(old_token)["user_id"]
     # 期限の直前には同じ人として扱い、期限ちょうどで失効する。
-    expires_at = session_store.sessions[old_token]["expires_at"]
+    expires_at = session_store.get_session(old_token)["expires_at"]
     monkeypatch.setattr(session_store.time, "time", lambda: expires_at - 1)
     assert "山田 として参加中" in client.get("/app/sns/").text
     monkeypatch.setattr(session_store.time, "time", lambda: expires_at)
     assert 'action="/app/sns/join"' in client.get("/app/sns/").text
-    assert old_token not in session_store.sessions
+    assert session_store.get_session(old_token) is None
     assert 'action="/app/sns/join"' in client.post("/app/sns/post", data={"text": "期限切れ"}).text
-    assert not sns.posts
+    assert not state.posts
     join(client)
-    assert session_store.sessions[client.cookies.get(session_store.SESSION_COOKIE)]["user_id"] != old_id
+    assert session_store.get_session(client.cookies.get(session_store.SESSION_COOKIE))["user_id"] != old_id
 
 
-def test_lost_server_memory_requires_rejoin(client):
+def test_lost_posts_keep_the_database_session(client):
     join(client)
     client.post("/app/sns/post", data={"text": "以前の授業"})
-    # 再起動でモジュールのメモリが失われた場合と同じ状態。
-    session_store.sessions.clear()
-    sns.posts.clear()
+    # 投稿が消えても、SQLiteに保存した参加情報は残る。
+    state.posts.clear()
     response = client.get("/app/sns/")
-    assert 'action="/app/sns/join"' in response.text
+    assert "山田 として参加中" in response.text
     assert "以前の授業" not in response.text
 
 
@@ -175,7 +168,7 @@ def test_oldest_posts_removed_after_100(client):
     for number in range(101):
         response = client.post("/app/sns/post", data={"text": f"投稿{number}"}, follow_redirects=False)
         assert response.status_code == 303
-    assert len(sns.posts) == 100
-    assert sns.posts[0]["text"] == "投稿1"
-    assert sns.posts[-1]["text"] == "投稿100"
-    assert len({post["id"] for post in sns.posts}) == 100
+    assert len(state.posts) == 100
+    assert state.posts[0]["text"] == "投稿1"
+    assert state.posts[-1]["text"] == "投稿100"
+    assert len({post["id"] for post in state.posts}) == 100

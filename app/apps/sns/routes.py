@@ -1,18 +1,16 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app import sessions as session_store
+from app.apps.sns import realtime, state
 
 APP_DIR = Path(__file__).resolve().parent
 router = APIRouter(prefix="/app/sns")
+router.include_router(realtime.router)
 templates = Jinja2Templates(directory=APP_DIR / "templates")
-
-# SNSの投稿はこのアプリだけの状態としてメモリに保持する。
-posts: list[dict] = []
-
 
 def sns_page(
     request: Request,
@@ -25,7 +23,7 @@ def sns_page(
     return templates.TemplateResponse(
         request=request,
         name="sns.html",
-        context={"user": user, "posts": posts, "error": error, "name": name, "text": text},
+        context={"user": user, "posts": state.posts, "error": error, "name": name, "text": text},
         status_code=status_code,
     )
 
@@ -61,15 +59,35 @@ async def post(request: Request, text: str = Form("")):
             secure=session_store.COOKIE_SECURE,
         )
         return response
-    text = text.strip()
-    if not 1 <= len(text) <= 500:
-        return sns_page(request, user, "投稿は1〜500文字で入力してください。", text=text, status_code=400)
+    try:
+        state.add_post(user, text)
+    except HTTPException as error:
+        return sns_page(request, user, error.detail, text=text, status_code=error.status_code)
+    await realtime.broadcast()
+    return RedirectResponse("/app/sns/", status_code=303)
 
-    posts.append({
-        "id": posts[-1]["id"] + 1 if posts else 1,
-        "user_id": user["user_id"],
-        "name": user["name"],
-        "text": text,
-    })
-    del posts[:-100]  # 古い投稿を取り除き、最新100件だけを残す。
+
+@router.post("/posts/{post_id}/edit")
+async def edit(request: Request, post_id: str, text: str = Form("")):
+    user = session_store.current_user(request)
+    if user is None:
+        return RedirectResponse("/app/sns/", status_code=303)
+    try:
+        state.edit_post(user, post_id, text)
+    except HTTPException as error:
+        return sns_page(request, user, error.detail, status_code=error.status_code)
+    await realtime.broadcast()
+    return RedirectResponse("/app/sns/", status_code=303)
+
+
+@router.post("/posts/{post_id}/delete")
+async def delete(request: Request, post_id: str):
+    user = session_store.current_user(request)
+    if user is None:
+        return RedirectResponse("/app/sns/", status_code=303)
+    try:
+        state.delete_post(user, post_id)
+    except HTTPException as error:
+        return sns_page(request, user, error.detail, status_code=error.status_code)
+    await realtime.broadcast()
     return RedirectResponse("/app/sns/", status_code=303)

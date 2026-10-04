@@ -6,10 +6,9 @@ from app.main import app
 
 
 @pytest.fixture(autouse=True)
-def clear_sessions():
-    session_store.sessions.clear()
+def session_database(tmp_path, monkeypatch):
+    monkeypatch.setattr(session_store, "SESSION_DB_PATH", tmp_path / "sessions.sqlite3")
     yield
-    session_store.sessions.clear()
 
 
 @pytest.fixture

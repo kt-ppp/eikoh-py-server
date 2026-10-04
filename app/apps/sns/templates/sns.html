@@ -7,23 +7,42 @@
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/app/sns/static/style.css">
 </head>
-<body>
+<body{% if user %} data-user-id="{{ user.user_id }}"{% endif %}>
     <h1>SNS Mock</h1>
     <p><a href="/about">このアプリについて</a></p>
-    {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+    <p id="error" role="alert"{% if not error %} hidden{% endif %}>{{ error }}</p>
     {% if user %}
     <p>{{ user.name }} として参加中</p>
-    <form method="post" action="/app/sns/post">
+    <p id="connection-status" hidden></p>
+    <form method="post" action="/app/sns/post" data-action="post">
         <label for="text">投稿</label>
         <textarea id="text" name="text" rows="3" maxlength="500" required>{{ text }}</textarea>
         <button type="submit">投稿する</button>
     </form>
+    <div id="posts">
     {% for post in posts %}
-    <article class="post">
-        <strong>{{ post.name }}</strong>
+    <article class="post" data-id="{{ post.id }}">
+        <strong class="post-name">{{ post.name }}</strong>
         <p class="post-text">{{ post.text }}</p>
+        {% if post.user_id == user.user_id %}
+        <div class="post-actions">
+            <details>
+                <summary>編集</summary>
+                <form method="post" action="/app/sns/posts/{{ post.id }}/edit" data-action="edit" data-id="{{ post.id }}">
+                    <label for="edit-{{ post.id }}">投稿を編集</label>
+                    <textarea id="edit-{{ post.id }}" name="text" rows="3" maxlength="500" required>{{ post.text }}</textarea>
+                    <button type="submit">保存する</button>
+                </form>
+            </details>
+            <form method="post" action="/app/sns/posts/{{ post.id }}/delete" data-action="delete" data-id="{{ post.id }}">
+                <button type="submit">削除</button>
+            </form>
+        </div>
+        {% endif %}
     </article>
     {% endfor %}
+    </div>
+    <script src="/app/sns/static/sns.js" defer></script>
     {% else %}
     <form method="post" action="/app/sns/join">
         <label for="name">名前</label>

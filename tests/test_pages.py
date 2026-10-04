@@ -14,11 +14,15 @@ def test_about_renders_student_markdown(client):
     assert '<a href="/app/sns/">' in response.text
 
 
-@pytest.mark.parametrize("path", ["/static/style.css", "/app/sns/static/style.css"])
-def test_stylesheet_is_served(client, path):
+@pytest.mark.parametrize("path, content_type", [
+    ("/static/style.css", "text/css"),
+    ("/app/sns/static/style.css", "text/css"),
+    ("/app/sns/static/sns.js", "text/javascript"),
+])
+def test_static_file_is_served(client, path, content_type):
     response = client.get(path)
     assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/css")
+    assert response.headers["content-type"].startswith(content_type)
 
 
 @pytest.mark.parametrize("path", ["/api/messages", "/api/events", "/api/join", "/api/me", "/docs", "/redoc", "/openapi.json"])

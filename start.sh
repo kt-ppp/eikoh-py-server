@@ -7,7 +7,7 @@ if [ ! -x .venv/bin/python ]; then
     python3 -m venv .venv
 fi
 
-if ! .venv/bin/python -c 'import fastapi, uvicorn, jinja2, python_multipart, markdown' >/dev/null 2>&1; then
+if ! .venv/bin/python -c 'import fastapi, uvicorn, websockets, jinja2, python_multipart, markdown' >/dev/null 2>&1; then
     .venv/bin/python -m pip install -e .
 fi
 

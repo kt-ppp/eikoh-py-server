@@ -24,6 +24,6 @@ def test_another_app_can_share_the_same_user():
         response = browser.post("/app/sns/join", data={"name": "山田"}, follow_redirects=False)
         assert response.status_code == 303
         token = browser.cookies.get(session_store.SESSION_COOKIE)
-        user_id = session_store.sessions[token]["user_id"]
+        user_id = session_store.get_session(token)["user_id"]
         assert browser.get("/app/example/").text == user_id
         assert "山田 として参加中" in browser.get("/app/sns/").text

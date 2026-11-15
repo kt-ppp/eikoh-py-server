@@ -10,8 +10,8 @@ import tempfile
 
 ROOT_DIR = Path(os.path.abspath(__file__)).parent
 REQUIRED_MODULES = ("fastapi", "uvicorn", "websockets", "jinja2", "python_multipart")
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8000
+DEFAULT_HOST = "0.0.0.0"
+DEFAULT_PORT = 8080
 VERSION_CHECK = "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)"
 
 

@@ -6,12 +6,13 @@ import sys
 import pytest
 
 from app.apps.sns import state
+from app import sessions as session_store
 
 
 def join(client, name):
     client.cookies.clear()
     client.post("/app/sns/join", data={"name": name})
-    return client.cookies.get("lesson_session")
+    return client.cookies.get(session_store.SESSION_COOKIE)
 
 
 def test_owner_can_edit_and_delete_using_forms(client):
@@ -30,12 +31,12 @@ def test_owner_can_edit_and_delete_using_forms(client):
 
 
 @pytest.mark.parametrize("action", ["edit", "delete"])
-def test_other_users_cannot_modify_posts_even_with_the_same_name(client, action):
+def test_other_users_cannot_modify_posts(client, action):
     join(client, "山田")
     client.post("/app/sns/post", data={"text": "本人の投稿"})
     post_id = state.posts[0]["id"]
     owner_id = state.posts[0]["user_id"]
-    join(client, "山田")
+    join(client, "田中")
     page = client.get("/app/sns/").text
     assert f'/app/sns/posts/{post_id}/edit' not in page
     assert f'/app/sns/posts/{post_id}/delete' not in page

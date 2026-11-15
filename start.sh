@@ -3,13 +3,22 @@ set -eu
 
 cd -- "$(dirname -- "$0")"
 
-if [ ! -x .venv/bin/python ]; then
-    python3 -m venv .venv
-fi
+run_if_python310() {
+    if command -v "$1" >/dev/null 2>&1 && "$@" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
+        exec "$@" start.py
+    fi
+}
 
-if ! .venv/bin/python -c 'import fastapi, uvicorn, websockets, jinja2, python_multipart, markdown' >/dev/null 2>&1; then
-    .venv/bin/python -m pip install -e .
-fi
+run_if_python310 .venv/bin/python
+run_if_python310 .venv-posix/bin/python
+run_if_python310 .venv/Scripts/python.exe
+run_if_python310 python3
+run_if_python310 python
+run_if_python310 py -3
+run_if_python310 py
+for cmd in python3.13 python3.12 python3.11 python3.10; do
+    run_if_python310 "$cmd"
+done
 
-printf '投稿画面: http://localhost:8000/app/sns/\n説明: http://localhost:8000/about\n'
-exec .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+echo "Python 3.10以上が見つかりません。Python 3.10以上をインストールしてください。" >&2
+exit 1

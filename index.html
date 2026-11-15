@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>アプリ一覧</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+        .apps article { border: 1px solid #ccc; border-radius: 8px; padding: 8px 20px 20px; }
+        .apps p { line-height: 1.7; }
+    </style>
+</head>
+<body>
+    <h1>アプリ一覧</h1>
+    <main class="apps">
+    {% for entry in apps %}
+        <article>
+            <h2><a href="{{ entry.url }}">{{ entry.title }}</a></h2>
+            <p>{{ entry.description }}</p>
+            <a href="{{ entry.url }}">開く</a>
+        </article>
+    {% endfor %}
+    </main>
+</body>
+</html>

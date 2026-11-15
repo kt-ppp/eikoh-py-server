@@ -91,6 +91,10 @@
 
     document.addEventListener("submit", event => {
         const form = event.target;
+        if (form.dataset.action === "delete" && !window.confirm("この投稿を削除しますか？")) {
+            event.preventDefault();
+            return;
+        }
         if (!form.dataset.action || !socket || socket.readyState !== WebSocket.OPEN) return;
         event.preventDefault();
         if (pendingForm) return;
@@ -105,7 +109,7 @@
             socket.send(JSON.stringify(message));
         } catch {
             finishPending(false);
-            error.textContent = "送信できませんでした。接続が戻ってから再度操作してください。";
+            error.textContent = "送信できませんでした。少し待ってからやり直してください。";
             error.hidden = false;
         }
     });

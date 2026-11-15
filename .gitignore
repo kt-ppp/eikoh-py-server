@@ -1,4 +1,6 @@
 .venv/
+.venv-win/
+.venv-posix/
 __pycache__/
 .pytest_cache/
 *.egg-info/

@@ -44,7 +44,7 @@ def test_websocket_rejects_other_users_mutations(client, action):
     client.post("/app/sns/post", data={"text": "本人の投稿"})
     post_id = state.posts[0]["id"]
     owner_id = state.posts[0]["user_id"]
-    headers_b = join(client, "山田")
+    headers_b = join(client, "田中")
     with client.websocket_connect("/app/sns/ws", headers=headers_b) as b:
         b.receive_json()
         b.send_json({"action": action, "id": post_id, "text": "改ざん", "user_id": owner_id})
@@ -81,7 +81,7 @@ def test_binary_frames_are_rejected(client):
         assert websocket.receive_json()["status"] == 400
 
 
-@pytest.mark.parametrize("cookie", ["", "lesson_session=invalid"])
+@pytest.mark.parametrize("cookie", ["", f"{session_store.SESSION_COOKIE}=invalid"])
 def test_unjoined_connections_receive_no_posts(client, cookie):
     with client.websocket_connect("/app/sns/ws", headers={"cookie": cookie}) as websocket:
         with pytest.raises(WebSocketDisconnect) as error:
@@ -114,7 +114,7 @@ def test_expired_connection_cannot_modify_posts(client, monkeypatch):
 
 
 def test_idle_connection_is_closed_at_session_expiry(client, monkeypatch):
-    monkeypatch.setattr(session_store, "LESSON_SESSION_TTL_SECONDS", 1)
+    monkeypatch.setattr(session_store, "SESSION_TTL_SECONDS", 1)
     headers = join(client, "山田")
     with client.websocket_connect("/app/sns/ws", headers=headers) as websocket:
         websocket.receive_json()

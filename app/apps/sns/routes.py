@@ -8,6 +8,8 @@ from app import sessions as session_store
 from app.apps.sns import realtime, state
 
 APP_DIR = Path(__file__).resolve().parent
+APP_TITLE = "SNS"
+APP_DESCRIPTION = "短い投稿をリアルタイムに共有"
 router = APIRouter(prefix="/app/sns")
 router.include_router(realtime.router)
 templates = Jinja2Templates(directory=APP_DIR / "templates")
@@ -43,7 +45,10 @@ async def join(request: Request, name: str = Form("")):
         return sns_page(request, None, "名前は1〜30文字で入力してください。", name=name, status_code=400)
 
     response = RedirectResponse("/app/sns/", status_code=303)
-    session_store.create_session(name, response)
+    try:
+        session_store.create_session(name, response, require_unique_name=True)
+    except HTTPException as error:
+        return sns_page(request, None, error.detail, name=name, status_code=error.status_code)
     return response
 
 

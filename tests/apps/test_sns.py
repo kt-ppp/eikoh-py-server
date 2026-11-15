@@ -45,7 +45,7 @@ def test_join_cookie_and_identity_survive_reload(client):
 
 def test_secure_cookie_and_custom_ttl(client, monkeypatch):
     monkeypatch.setattr(session_store, "COOKIE_SECURE", True)
-    monkeypatch.setattr(session_store, "LESSON_SESSION_TTL_SECONDS", 60)
+    monkeypatch.setattr(session_store, "SESSION_TTL_SECONDS", 60)
     monkeypatch.setattr(session_store.time, "time", lambda: 1000)
     response = join(client)
     assert "Secure" in response.headers["set-cookie"]
@@ -70,12 +70,52 @@ def test_two_users_share_posts_with_separate_ids(client):
     join(client, "山田")
     client.post("/app/sns/post", data={"text": "Aからの投稿"})
     with TestClient(app) as other:
-        join(other, "山田")
+        join(other, "田中")
         assert other.cookies.get(session_store.SESSION_COOKIE) != client.cookies.get(session_store.SESSION_COOKIE)
         assert "Aからの投稿" in other.get("/app/sns/").text
         other.post("/app/sns/post", data={"text": "Bからの投稿"})
     assert "Bからの投稿" in client.get("/app/sns/").text
     assert state.posts[0]["user_id"] != state.posts[1]["user_id"]
+
+
+@pytest.mark.parametrize("name", ["山田", "  山田  ", "　山田　"])
+def test_duplicate_name_is_rejected_without_creating_a_session(client, name):
+    join(client, "山田")
+    token = client.cookies.get(session_store.SESSION_COOKIE)
+    original = session_store.get_session(token)
+    client.cookies.clear()
+    response = join(client, name)
+    assert response.status_code == 409
+    assert "その名前は使われています。別の名前を入力してください。" in response.text
+    assert 'value="山田"' in response.text
+    assert "set-cookie" not in response.headers
+    assert session_store.SESSION_COOKIE not in client.cookies
+    assert session_store.get_session(token) == original
+    with session_store.connection() as database:
+        assert database.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
+
+
+def test_name_can_be_reused_at_session_expiry(client, monkeypatch):
+    join(client, "山田")
+    token = client.cookies.get(session_store.SESSION_COOKIE)
+    original = session_store.get_session(token)
+    client.cookies.clear()
+    monkeypatch.setattr(session_store.time, "time", lambda: original["expires_at"] - 1)
+    assert join(client, "山田").status_code == 409
+    monkeypatch.setattr(session_store.time, "time", lambda: original["expires_at"])
+    assert join(client, "山田").status_code == 303
+    assert session_store.get_session(token) is None
+    assert session_store.get_session(client.cookies.get(session_store.SESSION_COOKIE))["user_id"] != original["user_id"]
+
+
+def test_duplicate_name_error_escapes_the_preserved_input(client):
+    name = '<script>alert(1)</script>'
+    join(client, name)
+    client.cookies.clear()
+    response = join(client, name)
+    assert response.status_code == 409
+    assert '<script>alert(1)</script>' not in response.text
+    assert '&lt;script&gt;alert(1)&lt;/script&gt;' in response.text
 
 
 @pytest.mark.parametrize("name", ["", " ", "\n\t　", "名" * 31])
